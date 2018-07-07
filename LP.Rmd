@@ -1,0 +1,90 @@
+---
+title: "Solving Linear Programming Problems in R with lpSolve"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Basic formulation
+
+lpSolve (and lpSolveAPI) are packages in R that allow for linear programming formulation and resolution.  First we must install and load the packages:
+
+```{r packages, warning=FALSE, message=FALSE}
+library(lpSolve)
+library(lpSolveAPI)
+
+```
+
+As as simple example, we first create an empty model $x$:
+```{r setup)}
+x <- make.lp(2,2)
+```
+This creates a LP model with 2 constraints and 2 decision variables.
+
+To solve problem 10 from the textbook *QMFB*, which is:
+
+Max $2A + 3B$
+
+$s.t.$
+
+   $1A + 2B \leq 6$
+  
+   $5A + 3B \leq 15$
+  
+   $A,B \geq 0$
+   
+This has 2 constraints and 2 decision variables.  We can setup the problem in the following way:
+  
+
+```{r setup2}
+  lp_ex <- make.lp(2, 2)
+  lp.control(lp_ex, sense = 'max')
+  set.objfn(lp_ex, c(2, 3))
+  add.constraint(lp_ex, c(1,2), "<=", 6)
+  add.constraint(lp_ex, c(5,3), "<=", 15)
+  set.bounds(lp_ex, lower = c(0, 0), columns = c(1, 2))
+  lp_ex
+```
+
+The functions that operate on the lp_ex object are self-explanatory and set up the constraints, objective function and bounds.  When we look at the object it has two free contraints that we can delete, and add in names for the constraints:
+ 
+```{r delete cons}
+  delete.constraint(lp_ex, 1)
+  delete.constraint(lp_ex, 1)
+  RowNames <- c("Constraint 1", "Constraint 2")
+  ColNames <- c("A", "B")
+  dimnames(lp_ex) <- list(RowNames, ColNames)
+  lp_ex
+```
+
+And to solve the problem:
+
+```{r solve}
+solve(lp_ex)
+get.objective(lp_ex)
+get.variables(lp_ex)
+get.constraints(lp_ex)
+```
+Graphically, we can plot constraints and objective function, as well as dashed lines for the approximate solution point.
+
+```{r plot}
+b <- seq(0,3,by=.1)
+a <- 6 - 2*b
+b2 <- seq(0,5,by=.1)
+a2 <- (15 - 3*b2)/5
+o1 <- seq(0,3,by=.1)
+o2 <- (9-3*o1)/2
+plot(b,a, col='red',type='l')
+lines(b2,a2, col='blue')
+lines(o1,o2,col='green')
+abline(h=2.142,lty = 2)
+abline(v=1.714, lty =2)
+ legend(2,4.5,legend = c("constraint1", "constraint2", "objective"),lty = c(1,1),col = c('red','blue','green'))
+```
+
+
+

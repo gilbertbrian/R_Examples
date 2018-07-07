@@ -1,0 +1,99 @@
+---
+title: "A Quick and Amateurish Example of Time Series Analysis with R"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data
+
+The data used here come from the forecast made by Pricing and Strategy (I think).  From what I gather, they put out a monthly forecast for various things concerning applications and funding.  I only looked at the SAF monthly application data.
+
+After saving as a csv file from excel, we can read the data into R as follows:
+```{r read data}
+SAFapps <- read.csv("SAFapps.csv", header=TRUE)
+```
+This saves the data into an R object called SAFapps, including the first column of header names.  Next, we can look at the structure of the dataset:
+```{r structure}
+str(SAFapps)
+summary(SAFapps)
+```
+
+The ts() function in R converts the data into a Time Series obect in R:
+```{r ts}
+SAFts <- ts(SAFapps,start=c(2012,1), end=c(2015,4),frequency = 12)
+head(SAFts)
+tail(SAFts)
+plot(SAFts[,2],ylab = "Apps")
+```
+
+## Exponential Smoothing with Trend and Seasonality
+### Holt-Winters
+
+Simple exponential smoothing can fit a time series with no trend or seasonality.  The Holt-Winters approach is a generalization that can model trend and/or seasonality.  In R, the ets function is part of the forecast library and provides an implementation of the Holt-Winters method.  There are various options that can be specified, but the default will find a "best-fitting" model according to certain criteria.
+
+```{r ets}
+library(forecast)
+fit.ets <- ets(SAFts[,2])
+fit.ets
+```
+The resulting model is ETS(M,N,A).  The first letter M means the error term used was Multiplicative, the second letter N means No trend, and the last letter A means the seasonality was Additive. These can be specified when running the model to force ETS to use any particular parameterization.  The smoothing parameters alpha and gamma are the parameters for the level and seasonality, respectively.  AIC, AICc, and BIC are model-fitting metrics used to gauge goodness of fit and evaluate different models.
+
+We can get measures of error with the accuracy function:
+```{r accuracy}
+accuracy(fit.ets)
+```
+and we forecast future values:
+```{r}
+pred.ets <- forecast(fit.ets,12)
+pred.ets
+plot(pred.ets, main = "ETS 12-month Forecast", ylab = "Apps")
+```
+The different shades of blue are the 80% and 95% confidence intervals.
+
+## ARIMA
+Auto Regressive Integrated Moving Average (ARIMA) models are another very popular way to model time series.  This was not mentioned in the textbook but is a very important class of models that R is well-equipped to handle. The textbook mentioned stationarity of a series, but I don't recall if the relevance was explicitly stated. ARMA modeling requires the series to be stationary. The Integrated(I) part of ARIMA models comes from the fact that if a series is not stationary, it must be differenced at least once to achieve stationarity.  Integrated means the series must be summed back later to counteract the differencing.
+One common test for stationarity is the Dickey-Fuller test:
+```{r}
+library(tseries)
+adf.test(SAFts[,2])
+```
+The p-value implies the series is not stationary and so we should try to difference at least once.
+```{r}
+dSAFts <- diff(SAFts)
+adf.test(dSAFts[,2])
+```
+The low p-value shows we now have a stationary series.
+
+ARIMA models are typically written ARIMA(p,d,q), where p is the autoregressive parameter, d is the number of time the series had to be  differenced, and q is the moving average parameter.  There are a variety of techniques to estimate these parameters, but here we will just use R's automated estimation.
+```{r}
+fit.arima <- auto.arima(SAFts[,2])
+fit.arima
+accuracy(fit.arima)
+pred.arima <- forecast(fit.arima,12)
+plot(pred.arima)
+```
+```{r}
+a <- c(pred.arima$fitted,pred.arima$mean)
+e <- c(pred.ets$fitted,pred.ets$mean)
+plot(SAFapps[1:52,2],type="o",ylab="Apps")
+lines(a,lty=2, col="green")
+lines(e,lty=3,col="red")
+legend("bottomleft",lty=c(1,2,3),pch=1,col=c(1,"green","red"),c("Data","ARIMA","Exponential"))
+```
+
+
+Finally, we can compare the models based on fit to data the model used in estimation:
+```{r}
+accuracy(pred.arima)
+accuracy(pred.ets)
+```
+So it appears the exponential models have a better fit.   We can also compare RMSE on the 12 data points we left out
+```{r}
+sqrt(sum((pred.arima$mean - SAFapps[41:52,2])^2)/12)
+sqrt(sum((pred.ets$mean - SAFapps[41:52,2])^2)/12)
+```
+
+So actually the ARIMA model does better on the 12 actual data points the model was not trained on.

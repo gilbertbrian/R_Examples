@@ -1,0 +1,79 @@
+---
+title: "Tooth Growth Analysis"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+### 1. Load the ToothGrowth data and perform some basic exploratory data analyses
+
+```{r}
+library(datasets)
+attach(ToothGrowth)
+require(graphics)
+str(ToothGrowth)
+ coplot(len ~ dose | supp, data = ToothGrowth, panel = panel.smooth,
+xlab = "ToothGrowth data: length vs dose, given type of supplement")
+```
+
+### Basic summary of the data
+
+```{r}
+summary(ToothGrowth)
+```
+
+From the graph above it appears there is a clear effect on tooth growth of dosage.  Less clear is the effect of supplement method.  Now we will look at data aggregated by factors and the mean and standard deviation of each:
+```{r}
+dataGroup <- as.data.frame(split(len,list(supp,dose)))
+dataGroup
+sapply(dataGroup,mean)
+sapply(dataGroup,sd)
+```
+
+It appears at lower doses, OJ has a greater effect than VC, but that effect diminshes as dosage is raised.
+
+### Confidence Intervals and Tests ###
+
+We will first test for effect of supplement method, disregarding the dosage.  First we consider unequal variances:
+
+```{r}
+t.test(len ~ supp, paired = F, var.equal = F)
+```
+
+and next equal variances:
+
+```{r}
+t.test(len ~ supp, paired = F, var.equal = T)
+```
+
+There is almost no difference between the two tests.  Both show results that are not significant at the 5% level.
+
+Next, we can consider whether the dose has an effect on tooth length.  First, we test dosages of 0.5 and 1:
+
+```{r}
+d1 <- ToothGrowth[dose==0.5 | dose==1,]
+t.test(len ~ dose, paired = F, var.equal = F,data = d1)
+```
+
+and now between 1 and 2:
+
+```{r}
+d2 <- ToothGrowth[dose==1 | dose==2,]
+t.test(len ~ dose, paired = F, var.equal = F,data = d2)
+```
+
+and now between 0.5 and 2:
+
+```{r}
+d1 <- ToothGrowth[dose==0.5 | dose==2,]
+t.test(len ~ dose, paired = F, var.equal = F,data = d1)
+```
+
+Clearly all three tests are significant and have very low p-values, indicating we should reject that hypothesis that there is no difference in tooth length between the dosage levels.
+
+### Conclusions and Assumptions ###
+
+From the analysis above, we conclude that supplement method does not significantly effect tooth length, so OJ and VC provide similar effectiveness.  However dosage level does appear to significantly effect tooth length, and we conclude that higher dosages lead to greater tooth length.
+
+We assumed that the population variances of the quantities being tested were not equal throughout.  This is a mild assumption that seemed justified by the EDA.  We also assume all of the subjects are independent from each other, represent the complete population of guinea pigs and were randomly selected from that population.
